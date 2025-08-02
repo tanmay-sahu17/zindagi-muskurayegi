@@ -1,4 +1,3 @@
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 
@@ -42,14 +41,10 @@ const register = async (req, res) => {
       });
     }
 
-    // Hash password
-    const saltRounds = 12;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
-
-    // Create user
+    // Create user with plain text password (no hashing as requested)
     const [result] = await pool.execute(
       'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-      [username, passwordHash, role]
+      [username, password, role]
     );
 
     res.status(201).json({
@@ -71,50 +66,65 @@ const register = async (req, res) => {
   }
 };
 
-// Login user - DEMO ONLY, NO TOKEN SYSTEM
+// Login user
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, role } = req.body;
 
     // Validation
-    if (!username || !password) {
+    if (!username || !password || !role) {
       return res.status(401).json({
+        success: false,
         message: "Invalid credentials"
       });
     }
 
-    // Only allow hardcoded demo credentials, no DB, no token
-    if (username === 'admin' && password === 'admin123') {
-      return res.json({
-        success: true,
-        message: 'Login successful (demo)',
-        data: {
-          user: {
-            id: 2,
-            username: 'admin',
-            role: 'admin'
-          }
-        }
-      });
-    }
-    if (username === 'anganwadi_worker' && password === 'worker123') {
-      return res.json({
-        success: true,
-        message: 'Login successful (demo)',
-        data: {
-          user: {
-            id: 1,
-            username: 'anganwadi_worker',
-            role: 'user'
-          }
-        }
+    // Find user with matching username and role
+    const [users] = await pool.execute(
+      'SELECT id, username, password_hash, role FROM users WHERE username = ? AND role = ?',
+      [username, role]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials"
       });
     }
 
-    // All other logins fail
-    return res.status(401).json({
-      message: "Invalid credentials"
+    const user = users[0];
+
+    // Compare password directly (plain text comparison)
+    if (password !== user.password_hash) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials"
+      });
+    }
+
+    // Generate JWT token with user ID and role in payload, expires in 1 hour
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        role: user.role 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
+        }
+      }
     });
+
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({

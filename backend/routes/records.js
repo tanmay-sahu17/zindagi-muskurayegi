@@ -10,11 +10,10 @@ const { authenticateToken, requireUser, requireAdmin } = require('../middleware/
 const router = express.Router();
 
 // User routes (Anganwadi workers)
-router.post('/child-data', authenticateToken, requireUser, submitChildData);
-router.get('/my-records', authenticateToken, requireUser, getUserRecords);
+router.post('/', authenticateToken, requireUser, submitChildData);
+router.get('/user', authenticateToken, requireUser, getUserRecords);
 
 // Admin routes
-router.get('/records', authenticateToken, requireAdmin, getAllRecords);
-router.get('/dashboard-stats', authenticateToken, requireAdmin, getDashboardStats);
+router.get('/', authenticateToken, requireAdmin, getAllRecords);
 
 module.exports = router;

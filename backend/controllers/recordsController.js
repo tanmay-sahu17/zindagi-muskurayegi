@@ -11,7 +11,7 @@ const submitChildData = async (req, res) => {
       symptoms,
       school_name,
       anganwadi_kendra,
-      health_status = 'Pending'
+      health_status = ''
     } = req.body;
 
     // Validation
@@ -297,9 +297,117 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// Get records by status (Admin only)
+const getRecordsByStatus = async (req, res) => {
+  try {
+    const { status } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    console.log(`Fetching records with status: ${status}`);
+
+    const [records] = await pool.execute(
+      `SELECT 
+        chr.id, chr.child_name, chr.age, chr.gender, chr.weight, 
+        chr.symptoms, chr.school_name, chr.anganwadi_kendra, 
+        chr.health_status, chr.created_at, u.username as submitted_by
+       FROM child_health_records chr
+       JOIN users u ON chr.submitted_by_user_id = u.id
+       WHERE chr.health_status = ?
+       ORDER BY chr.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [status, parseInt(limit), offset]
+    );
+
+    const [countResult] = await pool.execute(
+      'SELECT COUNT(*) as total FROM child_health_records WHERE health_status = ?',
+      [status]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        records,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(countResult[0].total / parseInt(limit)),
+          total_records: countResult[0].total,
+          records_per_page: parseInt(limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get records by status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching records by status'
+    });
+  }
+};
+
+// Get records by date range (Admin only)
+const getRecordsByDateRange = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const { page = 1, limit = 20 } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date and end date are required'
+      });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    console.log(`Fetching records from ${startDate} to ${endDate}`);
+
+    const [records] = await pool.execute(
+      `SELECT 
+        chr.id, chr.child_name, chr.age, chr.gender, chr.weight, 
+        chr.symptoms, chr.school_name, chr.anganwadi_kendra, 
+        chr.health_status, chr.created_at, u.username as submitted_by
+       FROM child_health_records chr
+       JOIN users u ON chr.submitted_by_user_id = u.id
+       WHERE DATE(chr.created_at) BETWEEN ? AND ?
+       ORDER BY chr.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [startDate, endDate, parseInt(limit), offset]
+    );
+
+    const [countResult] = await pool.execute(
+      'SELECT COUNT(*) as total FROM child_health_records WHERE DATE(created_at) BETWEEN ? AND ?',
+      [startDate, endDate]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        records,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(countResult[0].total / parseInt(limit)),
+          total_records: countResult[0].total,
+          records_per_page: parseInt(limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get records by date range error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching records by date range'
+    });
+  }
+};
+
 module.exports = {
   submitChildData,
   getAllRecords,
   getUserRecords,
-  getDashboardStats
+  getDashboardStats,
+  getRecordsByStatus,
+  getRecordsByDateRange
 };

@@ -72,28 +72,24 @@ const initializeTables = async () => {
 // Create default admin user if not exists
 const createDefaultAdmin = async () => {
   try {
-    const bcrypt = require('bcrypt');
-    const [rows] = await pool.execute('SELECT * FROM users WHERE role = "admin" LIMIT 1');
+    // First, delete existing users to avoid conflicts
+    await pool.execute('DELETE FROM users WHERE username IN ("admin", "anganwadi_worker")');
+    console.log('🗑️  Cleared existing default users');
     
-    if (rows.length === 0) {
-      const hashedPassword = await bcrypt.hash('admin123', 12);
-      await pool.execute(
-        'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-        ['admin', hashedPassword, 'admin']
-      );
-      console.log('✅ Default admin user created (username: admin, password: admin123)');
-    }
+    // Create admin user
+    await pool.execute(
+      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
+      ['admin', 'admin123', 'admin']
+    );
+    console.log('✅ Default admin user created (username: admin, password: admin123)');
 
-    // Create a demo user as well
-    const [userRows] = await pool.execute('SELECT * FROM users WHERE username = "anganwadi_worker"');
-    if (userRows.length === 0) {
-      const hashedPassword = await bcrypt.hash('worker123', 12);
-      await pool.execute(
-        'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-        ['anganwadi_worker', hashedPassword, 'user']
-      );
-      console.log('✅ Default user created (username: anganwadi_worker, password: worker123)');
-    }
+    // Create demo user
+    await pool.execute(
+      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
+      ['anganwadi_worker', 'worker123', 'user']
+    );
+    console.log('✅ Default user created (username: anganwadi_worker, password: worker123)');
+    
   } catch (error) {
     console.error('❌ Error creating default users:', error.message);
   }

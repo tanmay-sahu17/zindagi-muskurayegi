@@ -7,6 +7,7 @@ require('dotenv').config();
 const { testConnection, initializeTables, createDefaultAdmin } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const recordsRoutes = require('./routes/records');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,7 +29,7 @@ app.use('/api/', limiter);
 // Stricter rate limiting for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 auth requests per windowMs
+  max: 100, // Increased limit for testing
   message: {
     success: false,
     message: 'Too many authentication attempts, please try again later.'
@@ -37,11 +38,13 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// CORS configuration
+// CORS configuration - Allow all origins for development
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-  optionsSuccessStatus: 200
+  origin: true, // Allow all origins
+  credentials: true, // Enable credentials for authentication
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 };
 app.use(cors(corsOptions));
 
@@ -51,7 +54,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // API routes
 app.use('/api/auth', authRoutes);
-app.use('/api', recordsRoutes);
+app.use('/api/child-health-records', recordsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

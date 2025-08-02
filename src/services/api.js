@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 // Base API URL - configured for our Node.js backend
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api';
 
 // Create axios instance
 const api = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true, // Enable credentials for CORS
   headers: {
     'Content-Type': 'application/json',
   },
@@ -29,7 +30,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect on 401 if it's NOT a login request
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       // Token expired or invalid
       localStorage.removeItem('authToken');
       localStorage.removeItem('userData');
@@ -42,7 +44,7 @@ api.interceptors.response.use(
 // Auth API endpoints
 export const authAPI = {
   login: (credentials, userType) => 
-    api.post('/auth/login', { ...credentials, userType }),
+    api.post('/auth/login', { ...credentials, role: userType }),
   
   logout: () => 
     api.post('/auth/logout'),
