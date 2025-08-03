@@ -86,7 +86,7 @@ const createDefaultAdmin = async () => {
     // Create demo user
     await pool.execute(
       'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-      ['anganwadi_worker', 'worker123', 'user']
+      ['anganwadi_worker', 'worker123', 'anganwadi']
     );
     console.log('✅ Default user created (username: anganwadi_worker, password: worker123)');
     

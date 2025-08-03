@@ -86,15 +86,14 @@ const submitChildData = async (req, res) => {
 // Get all child health records (Admin only)
 const getAllRecords = async (req, res) => {
   try {
+    console.log('📋 getAllRecords called with query:', req.query);
+    
     const { 
-      anganwadi_kendra, 
-      health_status, 
-      start_date, 
-      end_date, 
       page = 1, 
-      limit = 50 
+      limit = 10000  // Increased limit for government use - 10,000 records per page
     } = req.query;
 
+    // Simple query without complex filters for now
     let query = `
       SELECT 
         chr.id,
@@ -110,90 +109,51 @@ const getAllRecords = async (req, res) => {
         chr.updated_at,
         u.username as submitted_by
       FROM child_health_records chr
-      JOIN users u ON chr.submitted_by_user_id = u.id
-      WHERE 1=1
+      LEFT JOIN users u ON chr.submitted_by_user_id = u.id
+      ORDER BY chr.created_at DESC
     `;
 
-    const params = [];
-
-    // Apply filters
-    if (anganwadi_kendra) {
-      query += ' AND chr.anganwadi_kendra LIKE ?';
-      params.push(`%${anganwadi_kendra}%`);
-    }
-
-    if (health_status) {
-      query += ' AND chr.health_status = ?';
-      params.push(health_status);
-    }
-
-    if (start_date) {
-      query += ' AND DATE(chr.created_at) >= ?';
-      params.push(start_date);
-    }
-
-    if (end_date) {
-      query += ' AND DATE(chr.created_at) <= ?';
-      params.push(end_date);
-    }
-
-    // Add ordering and pagination
-    query += ' ORDER BY chr.created_at DESC';
+    // Safe pagination with alternative syntax - High limits for government use
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(50000, parseInt(limit) || 10000)); // Max 50,000 records for government
+    const offset = (pageNum - 1) * limitNum;
     
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ' LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    // Use simpler LIMIT syntax
+    query += ` LIMIT ${limitNum} OFFSET ${offset}`;
 
-    // Execute query
-    const [records] = await pool.execute(query, params);
+    console.log('📋 Executing simplified query:', query);
 
-    // Get total count for pagination
-    let countQuery = `
-      SELECT COUNT(*) as total
-      FROM child_health_records chr
-      JOIN users u ON chr.submitted_by_user_id = u.id
-      WHERE 1=1
-    `;
+    // Execute query without parameters for LIMIT/OFFSET
+    const [records] = await pool.execute(query);
+    console.log('📋 Records fetched:', records.length);
 
-    const countParams = [];
-    if (anganwadi_kendra) {
-      countQuery += ' AND chr.anganwadi_kendra LIKE ?';
-      countParams.push(`%${anganwadi_kendra}%`);
-    }
-    if (health_status) {
-      countQuery += ' AND chr.health_status = ?';
-      countParams.push(health_status);
-    }
-    if (start_date) {
-      countQuery += ' AND DATE(chr.created_at) >= ?';
-      countParams.push(start_date);
-    }
-    if (end_date) {
-      countQuery += ' AND DATE(chr.created_at) <= ?';
-      countParams.push(end_date);
-    }
-
-    const [countResult] = await pool.execute(countQuery, countParams);
+    // Get total count
+    const [countResult] = await pool.execute(
+      'SELECT COUNT(*) as total FROM child_health_records'
+    );
     const total = countResult[0].total;
+    console.log('📋 Total records in DB:', total);
 
     res.json({
       success: true,
       data: {
         records,
         pagination: {
-          current_page: parseInt(page),
-          total_pages: Math.ceil(total / parseInt(limit)),
+          current_page: pageNum,
+          total_pages: Math.ceil(total / limitNum),
           total_records: total,
-          records_per_page: parseInt(limit)
+          records_per_page: limitNum
         }
       }
     });
 
   } catch (error) {
-    console.error('Get all records error:', error);
+    console.error('❌ Get all records error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Internal server error while fetching records'
+      message: 'Failed to fetch records',
+      error: error.message
     });
   }
 };

@@ -76,7 +76,7 @@ const authorizeRole = (allowedRoles) => {
 const requireAdmin = authorizeRole(['admin']);
 
 // Middleware for user-only routes (Anganwadi workers)
-const requireUser = authorizeRole(['user']);
+const requireUser = authorizeRole(['user', 'anganwadi']);
 
 // Middleware for both admin and user routes
 const requireAuth = authorizeRole(['admin', 'user']);
