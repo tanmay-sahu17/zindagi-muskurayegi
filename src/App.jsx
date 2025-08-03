@@ -107,18 +107,34 @@ const SimpleApp = () => {
         console.log('✅ Admin stats updated:', newStats);
       }
       
-      // Try to fetch records list
+      // Try to fetch records list  
       try {
-        const recordsResponse = await childHealthAPI.getAllRecords();
-        console.log('📋 Records response:', recordsResponse.data);
+        console.log('🔄 Fetching records with childHealthAPI.getAllRecords(1, 10000)...');
+        const recordsResponse = await childHealthAPI.getAllRecords(1, 10000); // Increased for government use
+        console.log('📋 Raw Records response:', recordsResponse);
+        console.log('📋 Records response data:', recordsResponse.data);
         
         if (recordsResponse.data && recordsResponse.data.success) {
-          setAdminRecords(recordsResponse.data.data || []);
-          console.log('✅ Records updated:', recordsResponse.data.data?.length || 0, 'records');
+          // Handle the correct backend response structure
+          console.log('📋 Response data structure:', recordsResponse.data.data);
+          const records = recordsResponse.data.data?.records || recordsResponse.data.data || [];
+          console.log('📋 Extracted records:', records);
+          console.log('📋 Records is array?', Array.isArray(records));
+          console.log('📋 Records length:', records?.length || 0);
+          
+          if (Array.isArray(records) && records.length > 0) {
+            setAdminRecords(records);
+            console.log('✅ Records set in state:', records.length, 'records');
+          } else {
+            console.log('⚠️ No records found in response');
+            setAdminRecords([]);
+          }
+        } else {
+          console.error('❌ Records response failed:', recordsResponse.data);
+          setAdminRecords([]);
         }
       } catch (recordsError) {
-        console.warn('⚠️ Records fetch failed (non-critical):', recordsError.message);
-        // Don't set main error, just keep empty records
+        console.error('❌ Records fetch failed:', recordsError.message);
         setAdminRecords([]);
       }
       
@@ -185,13 +201,8 @@ const SimpleApp = () => {
   };
 
   const handleLogout = async () => {
-    try {
-      await authAPI.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-    
-    // Clear local storage
+    // Simply clear local storage - no need to call backend logout API
+    // since we're using JWT tokens (stateless)
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
     
@@ -509,7 +520,7 @@ const SimpleApp = () => {
                     color: '#2c3e50',
                     fontSize: '14px'
                   }}>
-                    {loginData.userType === 'anganwadi' ? 'Worker ID' : 'Admin Email'}
+                    {loginData.userType === 'anganwadi' ? 'Worker ID' : 'Admin Username'}
                   </label>
                   <input
                     type="text"
@@ -1511,7 +1522,11 @@ const SimpleApp = () => {
               color: '#6b7280',
               fontSize: '16px'
             }}>
-              {adminRecords.length > 0 ? (
+              {/* Debug info */}
+              {console.log('🐛 DEBUG: adminRecords =', adminRecords)}
+              {console.log('🐛 DEBUG: adminRecords.length =', adminRecords.length)}
+              
+              {adminRecords && adminRecords.length > 0 ? (
                 <div style={{ overflowX: 'auto', marginTop: '20px' }}>
                   <table style={{ 
                     width: '100%', 
@@ -1657,6 +1672,27 @@ const SimpleApp = () => {
                     </tbody>
                   </table>
                 </div>
+              ) : adminLoading ? (
+                <div style={{
+                  background: '#f9fafb',
+                  padding: '48px',
+                  borderRadius: '12px',
+                  border: '2px dashed #d1d5db'
+                }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px', color: '#9ca3af' }}>⏳</div>
+                  <h4 style={{ 
+                    margin: '0 0 12px 0', 
+                    color: '#374151',
+                    fontSize: '20px',
+                    fontWeight: '600'
+                  }}>Loading records...</h4>
+                  <p style={{ 
+                    margin: '0', 
+                    fontSize: '14px',
+                    color: '#6b7280',
+                    lineHeight: '1.5'
+                  }}>Please wait while we fetch the health records.</p>
+                </div>
               ) : (
                 <div style={{
                   background: '#f9fafb',
@@ -1664,20 +1700,13 @@ const SimpleApp = () => {
                   borderRadius: '12px',
                   border: '2px dashed #d1d5db'
                 }}>
-                  <div style={{ fontSize: '48px', marginBottom: '16px', color: '#9ca3af' }}>
-                    {adminStats.totalRecords > 0 ? '⚠️' : '📋'}
-                  </div>
+                  <div style={{ fontSize: '48px', marginBottom: '16px', color: '#9ca3af' }}>📋</div>
                   <h4 style={{ 
                     margin: '0 0 12px 0', 
                     color: '#374151',
                     fontSize: '20px',
                     fontWeight: '600'
-                  }}>
-                    {adminStats.totalRecords > 0 
-                      ? `Found ${adminStats.totalRecords} health record(s)`
-                      : 'No health records found'
-                    }
-                  </h4>
+                  }}>No health records available</h4>
                   <p style={{ 
                     margin: '0', 
                     fontSize: '14px',
@@ -1685,12 +1714,7 @@ const SimpleApp = () => {
                     lineHeight: '1.5',
                     maxWidth: '400px',
                     margin: '0 auto'
-                  }}>
-                    {adminStats.totalRecords > 0 
-                      ? 'Records exist in the database but could not be displayed. Please refresh the page or contact support.'
-                      : 'Health records submitted by Anganwadi workers will appear here for your review and management.'
-                    }
-                  </p>
+                  }}>Health records submitted by Anganwadi workers will appear here for your review and management.</p>
                 </div>
               )}
             </div>

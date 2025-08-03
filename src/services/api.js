@@ -46,11 +46,11 @@ export const authAPI = {
   login: (credentials, userType) => 
     api.post('/auth/login', { ...credentials, role: userType }),
   
-  logout: () => 
-    api.post('/auth/logout'),
+  // JWT tokens are stateless, so logout is handled client-side only
+  logout: () => Promise.resolve({ data: { success: true } }),
   
-  verifyToken: () => 
-    api.get('/auth/verify'),
+  getProfile: () => 
+    api.get('/auth/profile'),
 };
 
 // Child Health Records API endpoints
@@ -89,6 +89,10 @@ export const dashboardAPI = {
   // Get dashboard statistics (admin only)
   getStats: () => 
     api.get('/dashboard/stats'),
+  
+  // Get all records for admin dashboard
+  getAllRecords: (page = 1, limit = 50) => 
+    api.get(`/child-health-records?page=${page}&limit=${limit}`),
   
   // Get records by status
   getRecordsByStatus: (status) => 
